@@ -1,0 +1,23 @@
+{
+  "name": "neptune-engine",
+  "version": "0.1.0",
+  "description": "Lightweight JavaScript 3D game engine wrapping Three.js with a PICO-8-inspired API",
+  "type": "module",
+  "main": "./src/neptune.js",
+  "module": "./src/neptune.js",
+  "exports": {
+    ".": "./src/neptune.js"
+  },
+  "files": [
+    "src/neptune.js",
+    "README.md"
+  ],
+  "keywords": ["game-engine", "three.js", "3d", "browser", "canvas"],
+  "license": "MIT",
+  "peerDependencies": {
+    "three": ">=0.150.0"
+  },
+  "devDependencies": {
+    "three": "^0.170.0"
+  }
+}
