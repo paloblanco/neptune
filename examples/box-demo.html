@@ -508,20 +508,17 @@ Neptune.start();
 `;
 
   // ─── Build iframe HTML ─────────────────────────────────────────────────────
-  // srcdoc iframes have `about:srcdoc` as their base URL, so relative paths
-  // and origin-relative paths both fail. We inject a <base> element pointing
-  // at the project root (one level up from examples/) so that the importmap
-  // can use a plain relative path that the browser resolves correctly.
-  const PROJECT_ROOT = new URL('../', window.location.href).href;
-  const THREE_URL    = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
-  const THREE_ADD    = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/';
+  // Neptune.js is served from the project root.
+  // We build an absolute URL so srcdoc can reach it across origins.
+  const NEPTUNE_URL = window.location.origin + '/src/neptune.js';
+  const THREE_URL   = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+  const THREE_ADD   = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/';
 
   function buildIframeHTML(userCode) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <base href="${PROJECT_ROOT}">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     html, body { width:100%; height:100%; background:#111; overflow:hidden; }
@@ -532,7 +529,7 @@ Neptune.start();
     "imports": {
       "three":          "${THREE_URL}",
       "three/addons/":  "${THREE_ADD}",
-      "neptune-engine": "src/neptune.js"
+      "neptune-engine": "${NEPTUNE_URL}"
     }
   }
   <\/script>
