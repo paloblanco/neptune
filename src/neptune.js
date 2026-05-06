@@ -92,6 +92,21 @@ const _gpState = {
 
 // ─── NObject ─────────────────────────────────────────────────────────────────
 
+/**
+ * A scene object returned by every Neptune factory function (`createBox`, `createModel`, etc.).
+ *
+ * `position`, `rotation`, and `scale` are plain JavaScript arrays that write through to
+ * Three.js automatically. You can modify individual components (`obj.position[0] += 1`)
+ * or assign a whole new array (`obj.position = [0, 5, 0]`).
+ *
+ * @property {[number, number, number]} position - World-space position [x, y, z].
+ * @property {[number, number, number]} rotation - Rotation in degrees, YXZ Euler order [x, y, z].
+ * @property {[number, number, number]} scale    - Scale factors [x, y, z].
+ * @property {boolean} visible      - Whether the object is rendered.
+ * @property {string}  tag          - Arbitrary string used with `Neptune.findByTag()`.
+ * @property {boolean} castShadow   - Whether meshes in this object cast shadows.
+ * @property {boolean} receiveShadow - Whether meshes in this object receive shadows.
+ */
 class NObject {
   constructor(threeObj) {
     this._obj    = threeObj;
@@ -137,16 +152,32 @@ class NObject {
   }
 
   // parenting ---------------------------------------------------------------
+  /**
+   * Attaches `child` to this object so its transforms are relative to this object's.
+   * @param {NObject} child
+   * @returns {NObject} This object (chainable).
+   */
   add(child) {
     this._obj.add(child._obj);
     return this;
   }
+
+  /**
+   * Detaches a previously added child from this object.
+   * @param {NObject} child
+   * @returns {NObject} This object (chainable).
+   */
   remove(child) {
     this._obj.remove(child._obj);
     return this;
   }
 
   // sprite swap (for objects using a sprite-sheet material) -----------------
+  /**
+   * Changes the displayed sprite cell on a mesh that uses a sprite-sheet material.
+   * @param {string} sheetKey - Key of the loaded sprite sheet (from the asset manifest).
+   * @param {number} index    - Zero-based sprite index within the sheet.
+   */
   setSprite(sheetKey, index) {
     const asset = _assets[sheetKey];
     if (!asset) { warn(`setSprite: sheet "${sheetKey}" not loaded`); return; }
@@ -154,6 +185,14 @@ class NObject {
   }
 
   // model animation ---------------------------------------------------------
+  /**
+   * Plays a named animation clip on a GLTF model.
+   * Has no effect if the object was not created with `Neptune.createModel()`.
+   * @param {string} name - The animation clip name as defined in the GLTF file.
+   * @param {{ loop?: boolean, clampWhenFinished?: boolean }} [options]
+   *   - `loop` — repeat indefinitely (default: `true`).
+   *   - `clampWhenFinished` — hold the last frame when a non-looping clip ends.
+   */
   setAnimation(name, options = {}) {
     if (!this._mixer || !this._clips) return;
     const clip = THREE.AnimationClip.findByName(this._clips, name);
@@ -165,6 +204,10 @@ class NObject {
   }
 
   // remove from scene and dispose -------------------------------------------
+  /**
+   * Removes the object from the scene and disposes its geometry and materials.
+   * Also stops any running animation mixers attached to this object.
+   */
   destroy() {
     if (this._obj.parent) this._obj.parent.remove(this._obj);
     this._obj.traverse(o => {
@@ -249,7 +292,21 @@ const _cameraState = {
   _tpOpts: {},
 };
 
+/**
+ * Neptune's camera controller. Access via `Neptune.camera`.
+ * Neptune manages a single camera — you never construct a Three.js camera directly.
+ * @namespace
+ */
 const camera = {
+  /**
+   * Switches the camera projection type. Creates a fresh Three.js camera.
+   * @param {'perspective'|'orthographic'} type
+   * @param {{ fov?: number, size?: number, near?: number, far?: number }} [opts]
+   *   - `fov`  — perspective field of view in degrees (default: 75).
+   *   - `size` — orthographic half-height in world units (default: 10).
+   *   - `near` — near clip plane (default: 0.1).
+   *   - `far`  — far clip plane (default: 1000).
+   */
   setMode(type, opts = {}) {
     const W = _config.width  ?? 320;
     const H = _config.height ?? 240;
@@ -271,15 +328,33 @@ const camera = {
     }
   },
 
+  /**
+   * Moves the camera to the given world-space coordinates.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   */
   setPosition(x, y, z) {
     _threeCamera.position.set(x, y, z);
   },
 
+  /**
+   * Rotates the camera to face the given world-space point.
+   * Do not call this in `firstPerson` or `thirdPerson` mouse mode — Neptune drives
+   * the rotation automatically in those modes.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   */
   lookAt(x, y, z) {
     _threeCamera.lookAt(x, y, z);
   },
 
-  /** Yaw-only forward unit vector (y = 0, normalised), useful for movement. */
+  /**
+   * Returns the yaw-only (y = 0) forward unit vector of the camera.
+   * Useful for moving a character relative to camera facing direction.
+   * @returns {[number, number, number]} `[x, 0, z]` normalised.
+   */
   forward() {
     const dir = new THREE.Vector3();
     _threeCamera.getWorldDirection(dir);
@@ -288,6 +363,10 @@ const camera = {
     return [dir.x, dir.y, dir.z];
   },
 
+  /**
+   * Returns the yaw-only right-hand unit vector of the camera (perpendicular to `forward()`).
+   * @returns {[number, number, number]} `[x, 0, z]` normalised.
+   */
   right() {
     const dir = new THREE.Vector3();
     _threeCamera.getWorldDirection(dir);
@@ -298,11 +377,21 @@ const camera = {
     return [right.x, right.y, right.z];
   },
 
+  /**
+   * Attaches the camera to an NObject so it follows the object's position each frame.
+   * Used with `mouse.setMode('firstPerson')` to implement a first-person view.
+   * @param {NObject} nobj - The object to follow.
+   * @param {{ offset?: [number, number, number] }} [opts]
+   *   - `offset` — local offset from the object's origin (e.g. `[0, 1.7, 0]` for eye height).
+   */
   attachTo(nobj, opts = {}) {
     _cameraState._attached = nobj;
     _cameraState._attachOffset = opts.offset ?? [0, 0, 0];
   },
 
+  /**
+   * Removes any previously set camera attachment, returning to free camera mode.
+   */
   detach() {
     _cameraState._attached = null;
   },
@@ -310,6 +399,18 @@ const camera = {
 
 // ─── Mouse ───────────────────────────────────────────────────────────────────
 
+/**
+ * Neptune's mouse / pointer input controller. Access via `Neptune.mouse`.
+ * Mouse behavior is controlled by a mode set with `setMode()`.
+ * All state is polled inside `update()` — do not use event listeners.
+ * @namespace
+ * @property {number} x  - Cursor X in internal resolution space.
+ * @property {number} y  - Cursor Y in internal resolution space.
+ * @property {number} dx - Raw horizontal delta this frame (pixels).
+ * @property {number} dy - Raw vertical delta this frame (pixels).
+ * @property {(Function|null)} capturePrompt - Optional callback drawn when pointer lock
+ *   is pending. Replaces the default "CLICK TO CAPTURE MOUSE" text.
+ */
 const mouse = {
   get x() { return _mouseState.x; },
   get y() { return _mouseState.y; },
@@ -321,6 +422,30 @@ const mouse = {
   _pointerLocked: false,
   capturePrompt: null,
 
+  /**
+   * Sets the mouse interaction mode.
+   *
+   * - `'gui'`         — Standard visible cursor. Use for menus and 2D UI.
+   * - `'firstPerson'` — Requests pointer lock. Mouse delta drives camera yaw/pitch.
+   * - `'thirdPerson'` — Orbits the camera around a target. Scroll wheel zooms.
+   *
+   * @param {'gui'|'firstPerson'|'thirdPerson'} mode
+   * @param {object} [opts]
+   *   **firstPerson options:**
+   *   - `sensitivity` {number}  — Mouse sensitivity multiplier (default: 1).
+   *   - `invertY`     {boolean} — Invert vertical look (default: false).
+   *   - `pitchLimit`  {number}  — Max pitch in degrees, prevents flipping (default: 85).
+   *
+   *   **thirdPerson options:**
+   *   - `target`       {NObject|[number,number,number]} — Object or point to orbit.
+   *   - `distance`     {number} — Initial orbit distance (default: 6).
+   *   - `minDistance`  {number} — Minimum zoom distance (default: 2).
+   *   - `maxDistance`  {number} — Maximum zoom distance (default: 20).
+   *   - `sensitivity`  {number} — Mouse sensitivity multiplier (default: 1).
+   *   - `invertY`      {boolean} — Invert vertical orbit (default: false).
+   *   - `pitchLimit`   {[number, number]} — `[min, max]` degrees from horizontal (default: [5, 80]).
+   *   - `scrollToZoom` {boolean} — Allow scroll-wheel zoom (default: true).
+   */
   setMode(mode, opts = {}) {
     this._mode = mode;
     this._modeOpts = opts;
@@ -338,17 +463,42 @@ const mouse = {
     }
   },
 
+  /**
+   * Returns `true` while mouse button `b` is held down.
+   * @param {number} b - Button index: 0 = left, 1 = middle, 2 = right.
+   * @returns {boolean}
+   */
   btn(b) {
     return _mouseState._btnsDown.has(b);
   },
+
+  /**
+   * Returns `true` on the single frame a mouse button was first pressed.
+   * @param {number} b - Button index: 0 = left, 1 = middle, 2 = right.
+   * @returns {boolean}
+   */
   btnPress(b) {
     return _mouseState._btnsPressed.has(b);
   },
+
+  /**
+   * Returns `true` on the single frame a mouse button was released.
+   * @param {number} b - Button index: 0 = left, 1 = middle, 2 = right.
+   * @returns {boolean}
+   */
   btnRelease(b) {
     return _mouseState._btnsReleased.has(b);
   },
 
-  /** True if cursor is inside rect and left-clicked this frame. */
+  /**
+   * Returns `true` if the cursor is inside the given rectangle **and** the left
+   * mouse button was pressed this frame. Convenience for simple UI hit-tests.
+   * @param {number} x - Left edge in internal resolution space.
+   * @param {number} y - Top edge in internal resolution space.
+   * @param {number} w - Width in pixels.
+   * @param {number} h - Height in pixels.
+   * @returns {boolean}
+   */
   clicked(x, y, w, h) {
     return (
       this.btnPress(0) &&
@@ -385,9 +535,20 @@ function _getAudioCtx() {
   return _audioCtx._ctx;
 }
 
+/**
+ * Neptune's audio system. Access via `Neptune.audio`.
+ * All sounds must be loaded via `Neptune.load()` before use.
+ * @namespace
+ */
 const audio = {
   _tracks: {},   // key → { buffer, source, gainNode, opts }
 
+  /**
+   * Plays a loaded sound. If a looping track is already playing, this is a no-op.
+   * @param {string} key - Asset key from the manifest.
+   * @param {{ volume?: number }} [opts]
+   *   - `volume` — playback volume 0.0–1.0 (default: 1).
+   */
   play(key, opts = {}) {
     const asset = _assets[key];
     if (!asset || asset.type !== 'sound') { warn(`audio.play: "${key}" not loaded`); return; }
@@ -411,26 +572,46 @@ const audio = {
     this._tracks[key] = track;
   },
 
+  /**
+   * Stops a currently playing sound immediately.
+   * @param {string} key - Asset key from the manifest.
+   */
   stop(key) {
     const t = this._tracks[key];
     if (t?.playing) { t.source.stop(); t.playing = false; }
   },
 
+  /**
+   * Sets the volume of a specific track without stopping it.
+   * @param {string} key - Asset key from the manifest.
+   * @param {number} vol - Volume 0.0–1.0.
+   */
   setVolume(key, vol) {
     const t = this._tracks[key];
     if (t) t.gainNode.gain.value = vol * _audioCtx._gain;
   },
 
+  /**
+   * Sets the master output volume. Applies to all tracks.
+   * @param {number} vol - Volume 0.0–1.0.
+   */
   setMasterVolume(vol) {
     _audioCtx._gain = vol;
     if (_audioCtx._master) _audioCtx._master.gain.value = _audioCtx._muted ? 0 : vol;
   },
 
+  /**
+   * Silences all audio output without changing individual track volumes.
+   * Call `unmute()` to restore.
+   */
   mute() {
     _audioCtx._muted = true;
     if (_audioCtx._master) _audioCtx._master.gain.value = 0;
   },
 
+  /**
+   * Restores audio after a call to `mute()`.
+   */
   unmute() {
     _audioCtx._muted = false;
     if (_audioCtx._master) _audioCtx._master.gain.value = _audioCtx._gain;
@@ -439,12 +620,58 @@ const audio = {
 
 // ─── Math ────────────────────────────────────────────────────────────────────
 
+/**
+ * Neptune math utilities. Access via `Neptune.math`.
+ * @namespace
+ */
 const math = {
+  /**
+   * Linear interpolation between `a` and `b`.
+   * @param {number} a - Start value.
+   * @param {number} b - End value.
+   * @param {number} t - Interpolation factor (0 = `a`, 1 = `b`).
+   * @returns {number}
+   */
   lerp: (a, b, t) => a + (b - a) * t,
+
+  /**
+   * Clamps `v` so it stays between `mn` and `mx`.
+   * @param {number} v  - Value to clamp.
+   * @param {number} mn - Minimum allowed value.
+   * @param {number} mx - Maximum allowed value.
+   * @returns {number}
+   */
   clamp: (v, mn, mx) => Math.max(mn, Math.min(mx, v)),
+
+  /**
+   * Returns a random float in the range [0, n).
+   * @param {number} n
+   * @returns {number}
+   */
   rnd:   (n) => Math.random() * n,
+
+  /**
+   * Returns a random integer in the range [0, n).
+   * @param {number} n
+   * @returns {number}
+   */
   rndi:  (n) => Math.floor(Math.random() * n),
+
+  /**
+   * Creates a `[x, y, z]` array. Defaults to `[0, 0, 0]`.
+   * @param {number} [x=0]
+   * @param {number} [y=0]
+   * @param {number} [z=0]
+   * @returns {[number, number, number]}
+   */
   vec3:  (x = 0, y = 0, z = 0) => [x, y, z],
+
+  /**
+   * Euclidean distance between two world-space points.
+   * @param {[number, number, number]} a
+   * @param {[number, number, number]} b
+   * @returns {number}
+   */
   dist3: (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]),
 };
 
@@ -874,19 +1101,74 @@ function _color(c) {
 
 // ─── Neptune public API ───────────────────────────────────────────────────────
 
+/**
+ * Neptune game engine. The single default export. All engine functionality is
+ * accessed through properties and methods on this object.
+ *
+ * **Typical setup:**
+ * ```js
+ * import Neptune from 'neptune-engine';
+ * Neptune.init({ width: 320, height: 240 });
+ * Neptune.update = (dt) => { ... };
+ * Neptune.draw   = ()   => { ... };
+ * Neptune.start();
+ * ```
+ */
 const Neptune = {
-  // Lifecycle callbacks — developer assigns these
+  /**
+   * Assign a function here to run game logic. Called at the fixed update rate
+   * (default 60 Hz). `dt` is the fixed timestep in seconds (e.g. `1/60`).
+   * All input polling, physics, and game state changes belong here.
+   * @type {((dt: number) => void) | null}
+   */
   update:     null,
+
+  /**
+   * Assign a function here to draw the 2D overlay (HUD, text, UI).
+   * Called once per rendered frame, after `update`. The 3D scene renders
+   * automatically before `draw()` unless `manualRender` is set.
+   * @type {(() => void) | null}
+   */
   draw:       null,
+
+  /**
+   * Assign a function here to override the default loading screen.
+   * Called every frame while assets are loading. Use Neptune 2D drawing calls
+   * to display a custom loading UI.
+   * @type {(() => void) | null}
+   */
   loadScreen: null,
 
   // Sub-APIs
+  /** @type {typeof camera} */
   camera,
+  /** @type {typeof mouse} */
   mouse,
+  /** @type {typeof audio} */
   audio,
+  /** @type {typeof math} */
   math,
 
   // ── init ───────────────────────────────────────────────────────────────────
+  /**
+   * Initialises the engine. Must be called once before any other Neptune function.
+   * Sets up the Three.js renderer, scene, default camera, input listeners, and canvas scaling.
+   *
+   * @param {object} [config]
+   * @param {string|HTMLCanvasElement} [config.canvas]   - CSS selector or element. Default: first `<canvas>` found, or a new one appended to `<body>`.
+   * @param {number}  [config.width=320]                 - Internal render resolution width in pixels.
+   * @param {number}  [config.height=240]                - Internal render resolution height in pixels.
+   * @param {'fit'|'stretch'|'pixel'} [config.scale='fit'] - Viewport scaling mode.
+   *   - `'fit'`     — scales proportionally to fill the viewport (letterboxed).
+   *   - `'stretch'` — stretches to fill the viewport exactly.
+   *   - `'pixel'`   — largest integer scale that fits; enables `image-rendering: pixelated`.
+   * @param {boolean} [config.antialias=false]           - Enable WebGL anti-aliasing.
+   * @param {boolean} [config.pixelArt=false]            - Use nearest-neighbor texture filtering globally.
+   * @param {number}  [config.fps=60]                    - Fixed-timestep target in Hz.
+   * @param {string}  [config.background='#000000']      - Scene clear color (CSS string).
+   * @param {boolean} [config.debug=false]               - Log API misuse warnings to the console.
+   * @param {boolean} [config.manualRender=false]        - Disable automatic 3D rendering; call `Neptune.render3d()` yourself.
+   */
   init(config = {}) {
     _config = {
       width:       320,
@@ -955,6 +1237,11 @@ const Neptune = {
   },
 
   // ── start ─────────────────────────────────────────────────────────────────
+  /**
+   * Starts the game loop. Call after `init()`, and optionally after `load()`.
+   * Calling `start()` before `init()` throws an error.
+   * Safe to call multiple times — subsequent calls are no-ops.
+   */
   start() {
     assertInit();
     if (_running) return;
@@ -964,6 +1251,26 @@ const Neptune = {
   },
 
   // ── load ──────────────────────────────────────────────────────────────────
+  /**
+   * Fetches all assets in the manifest in parallel, then calls `onComplete`.
+   * The game loop is blocked while loading; the built-in (or custom) loading screen is shown.
+   * Can be called before `start()` or mid-game for per-level loading.
+   * Assets are cached by key — reloading an already-loaded key is a no-op.
+   *
+   * @param {object} manifest
+   * @param {Object.<string, string|{ src: string, cellW?: number, cellH?: number, regions?: Object.<string,{x:number,y:number,w:number,h:number}> }>} [manifest.sprites]
+   *   Sprite sheet definitions. Each value is a URL string or an options object.
+   *   - `src`     — image URL.
+   *   - `cellW`   — width of one sprite cell in pixels.
+   *   - `cellH`   — height of one sprite cell in pixels.
+   *   - `regions` — named rectangular sub-regions for use with `sprRegion()`.
+   * @param {Object.<string, string|{ src: string }>} [manifest.models]
+   *   GLTF model definitions. Each value is a `.glb`/`.gltf` URL or an options object.
+   * @param {Object.<string, string|{ src: string, loop?: boolean }>} [manifest.sounds]
+   *   Sound definitions. Each value is an audio URL or an options object.
+   *   - `loop` — loop the track continuously (default: false).
+   * @param {() => void} [onComplete] - Called after all assets have loaded successfully.
+   */
   load(manifest, onComplete) {
     _loading = true;
     _loadError = null;
@@ -979,6 +1286,22 @@ const Neptune = {
   },
 
   // ── scene objects ─────────────────────────────────────────────────────────
+  /**
+   * Creates a box (rectangular prism) mesh and adds it to the scene.
+   * @param {object} [opts]
+   * @param {number}  [opts.w=1]            - Width (X axis).
+   * @param {number}  [opts.h=1]            - Height (Y axis).
+   * @param {number}  [opts.d=1]            - Depth (Z axis).
+   * @param {string}  [opts.color='#ffffff'] - Flat surface color. Ignored when `spriteSheet` is set.
+   * @param {string}  [opts.spriteSheet]    - Key of a loaded sprite sheet to use as texture.
+   * @param {number}  [opts.sprite=0]       - Sprite index within the sheet.
+   * @param {[number,number,number]} [opts.position] - Initial world position.
+   * @param {[number,number,number]} [opts.rotation] - Initial rotation in degrees (YXZ).
+   * @param {[number,number,number]} [opts.scale]    - Initial scale.
+   * @param {boolean} [opts.castShadow=false]
+   * @param {boolean} [opts.receiveShadow=false]
+   * @returns {NObject}
+   */
   createBox(opts = {}) {
     const geo  = new THREE.BoxGeometry(opts.w ?? 1, opts.h ?? 1, opts.d ?? 1);
     const mat  = _makeMaterial(opts);
@@ -992,6 +1315,18 @@ const Neptune = {
     return new NObject(mesh);
   },
 
+  /**
+   * Creates a sphere mesh and adds it to the scene.
+   * @param {object} [opts]
+   * @param {number}  [opts.radius=0.5]     - Sphere radius.
+   * @param {string}  [opts.color='#ffffff'] - Flat surface color.
+   * @param {string}  [opts.spriteSheet]    - Key of a loaded sprite sheet.
+   * @param {number}  [opts.sprite=0]       - Sprite index within the sheet.
+   * @param {[number,number,number]} [opts.position]
+   * @param {boolean} [opts.castShadow=false]
+   * @param {boolean} [opts.receiveShadow=false]
+   * @returns {NObject}
+   */
   createSphere(opts = {}) {
     const geo  = new THREE.SphereGeometry(opts.radius ?? 0.5, 32, 16);
     const mat  = _makeMaterial(opts);
@@ -1003,6 +1338,18 @@ const Neptune = {
     return new NObject(mesh);
   },
 
+  /**
+   * Creates a flat horizontal plane (internally rotated -90° on X so it lies flat).
+   * @param {object} [opts]
+   * @param {number}  [opts.w=1]            - Width (X axis).
+   * @param {number}  [opts.h=1]            - Height (Z axis).
+   * @param {string}  [opts.color='#ffffff'] - Flat surface color.
+   * @param {string}  [opts.spriteSheet]    - Key of a loaded sprite sheet.
+   * @param {number}  [opts.sprite=0]       - Sprite index within the sheet.
+   * @param {[number,number,number]} [opts.position]
+   * @param {boolean} [opts.receiveShadow=false]
+   * @returns {NObject}
+   */
   createPlane(opts = {}) {
     const geo  = new THREE.PlaneGeometry(opts.w ?? 1, opts.h ?? 1);
     const mat  = _makeMaterial(opts);
@@ -1014,6 +1361,16 @@ const Neptune = {
     return new NObject(mesh);
   },
 
+  /**
+   * Instantiates a previously loaded GLTF model and adds it to the scene.
+   * If the model contains animations, they can be played with `nobj.setAnimation()`.
+   * Falls back to a magenta box if the key is not loaded (with a debug warning).
+   * @param {string} key  - Asset key from the manifest.
+   * @param {object} [opts]
+   * @param {[number,number,number]} [opts.position]
+   * @param {[number,number,number]} [opts.scale]
+   * @returns {NObject}
+   */
   createModel(key, opts = {}) {
     const asset = _assets[key];
     if (!asset || asset.type !== 'model') {
@@ -1035,6 +1392,19 @@ const Neptune = {
     return nobj;
   },
 
+  /**
+   * Creates a sprite-textured flat quad that automatically faces the camera each frame.
+   * Supports static and animated sprites (cycling through an array of frame indices).
+   * @param {object} [opts]
+   * @param {string}  [opts.spriteSheet]         - Key of a loaded sprite sheet.
+   * @param {number|number[]} [opts.sprite=0]    - Sprite index, or an array of indices for animation.
+   * @param {number}  [opts.fps=8]               - Frame rate for animated sprites.
+   * @param {number}  [opts.width=1]             - Quad width in world units.
+   * @param {number}  [opts.height=1]            - Quad height in world units.
+   * @param {[number,number,number]} [opts.position]
+   * @param {'y'|'none'} [opts.axisLock='y']    - `'y'` = cylindrical (stays upright); `'none'` = full spherical.
+   * @returns {NObject}
+   */
   createBillboard(opts = {}) {
     const w = opts.width  ?? 1;
     const h = opts.height ?? 1;
@@ -1069,16 +1439,62 @@ const Neptune = {
     return nobj;
   },
 
+  /**
+   * Defines the visual appearance of tile types for use with `createTilemap`.
+   * Returns the definitions object as-is; it acts as a lookup table for the tilemap builder.
+   *
+   * Each key is a tile type identifier (matching values in the `geometry` or `appearance` arrays).
+   * Each value is a tile definition object:
+   * - `{ color: '#rrggbb' }` — flat-colored tile (all faces).
+   * - `{ top, sides, bottom }` — per-face overrides. Each face value can be
+   *   `{ sheet: 'key', sprite: N }` or `{ color: '#rrggbb' }`.
+   *
+   * @param {Object.<number, object>} defs - Tile appearance definitions keyed by tile type ID.
+   * @returns {Object.<number, object>} The same `defs` object (used directly by `createTilemap`).
+   */
   createTileSet(defs) {
     // Just return the defs object — used as a look-up table by createTilemap
     return defs;
   },
 
+  /**
+   * Builds a 3D heightmap from a 2D grid and adds it to the scene.
+   * The returned NObject represents the entire map and can be repositioned, hidden, or destroyed.
+   *
+   * @param {object} opts
+   * @param {number[][]} opts.geometry
+   *   2D grid of height values. `0` = empty cell. Positive = extrude up, negative = extrude down.
+   * @param {number[][]} [opts.appearance]
+   *   Optional 2D grid of tile type keys. If omitted, the geometry integer values are used directly.
+   * @param {Object.<number, object>} opts.tileSet
+   *   Tile definitions returned by `createTileSet()`.
+   * @param {number} [opts.tileSize=1]
+   *   World units per grid cell.
+   * @param {[number,number,number]} [opts.position=[0,0,0]]
+   *   World-space origin of the map.
+   * @param {number|false} [opts.height=false]
+   *   `false` = tiles fill from the base plane up to their geometry height.
+   *   A number = each tile box is exactly that many units thick (useful for platforms).
+   * @returns {NObject}
+   */
   createTilemap(opts) {
     return _buildTilemap(opts);
   },
 
   // ── lighting ──────────────────────────────────────────────────────────────
+  /**
+   * Creates a light and adds it to the scene.
+   *
+   * @param {'ambient'|'directional'|'point'|'spot'} type - Light type.
+   * @param {object} [opts]
+   * @param {string}  [opts.color='#ffffff']   - Light color (CSS string).
+   * @param {number}  [opts.intensity=1]       - Light intensity.
+   * @param {[number,number,number]} [opts.position] - World position (not used by `'ambient'`).
+   * @param {boolean} [opts.castShadow=false]  - Enable shadow casting for this light.
+   * @param {number}  [opts.distance=0]        - `'point'` only — maximum range (0 = infinite).
+   * @param {number}  [opts.decay=2]           - `'point'` only — physical attenuation exponent.
+   * @returns {THREE.Light|null} The Three.js light object, or `null` for unknown types.
+   */
   addLight(type, opts = {}) {
     let light;
     const color     = opts.color     ?? '#ffffff';
@@ -1123,15 +1539,57 @@ const Neptune = {
   },
 
   // ── input ─────────────────────────────────────────────────────────────────
+  /**
+   * Returns `true` while the key is held down. Use for continuous actions (movement).
+   * Key names follow the Web standard `KeyboardEvent.key` (e.g. `'ArrowLeft'`, `'a'`, `' '`).
+   * @param {string} key
+   * @returns {boolean}
+   */
   keyDown   (key) { return _keysDown.has(key); },
+
+  /**
+   * Returns `true` on the single frame the key was first pressed. Use for one-shot actions.
+   * @param {string} key - `KeyboardEvent.key` name.
+   * @returns {boolean}
+   */
   keyPress  (key) { return _keysPressed.has(key); },
+
+  /**
+   * Returns `true` on the single frame the key was released.
+   * @param {string} key - `KeyboardEvent.key` name.
+   * @returns {boolean}
+   */
   keyRelease(key) { return _keysReleased.has(key); },
 
+  /**
+   * Returns `true` while a gamepad button is held.
+   * Button mapping: 0=D-left, 1=D-right, 2=D-up, 3=D-down, 4=A/Cross, 5=B/Circle,
+   * 6=X/Square, 7=Y/Triangle.
+   * @param {number} n - Button index (0–15).
+   * @returns {boolean}
+   */
   btn       (n)   { return _gpState._down[n]     ?? false; },
+
+  /**
+   * Returns `true` on the single frame a gamepad button was first pressed.
+   * @param {number} n - Button index (0–15).
+   * @returns {boolean}
+   */
   btnPress  (n)   { return _gpState._pressed[n]  ?? false; },
+
+  /**
+   * Returns `true` on the single frame a gamepad button was released.
+   * @param {number} n - Button index (0–15).
+   * @returns {boolean}
+   */
   btnRelease(n)   { return _gpState._released[n] ?? false; },
 
   // ── 2D overlay drawing ────────────────────────────────────────────────────
+  /**
+   * Clears the 2D overlay canvas. Called automatically each frame before `draw()`.
+   * @param {string} [color] - If provided, fills the canvas with this solid color.
+   *   If omitted, clears to transparent.
+   */
   cls(color) {
     if (color) {
       _ctx().fillStyle = color;
@@ -1141,6 +1599,17 @@ const Neptune = {
     }
   },
 
+  /**
+   * Draws text onto the 2D overlay. Call inside `draw()`.
+   * @param {string|number} text - The text to render.
+   * @param {number} x - Left edge in internal resolution space.
+   * @param {number} y - Top edge in internal resolution space.
+   * @param {string|{ color?: string, font?: string, align?: 'left'|'center'|'right' }} [style='#ffffff']
+   *   Pass a CSS color string for quick use, or an options object for full control.
+   *   - `color` — CSS color string (default: `'#ffffff'`).
+   *   - `font`  — CSS font string (default: `'8px monospace'`).
+   *   - `align` — text alignment (default: `'left'`).
+   */
   print(text, x, y, style = {}) {
     const ctx  = _ctx();
     const color = typeof style === 'string' ? style : (style.color ?? '#ffffff');
@@ -1155,6 +1624,14 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a 1 px outline rectangle onto the 2D overlay. Call inside `draw()`.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} w
+   * @param {number} h
+   * @param {string} [color='#ffffff']
+   */
   rect(x, y, w, h, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
@@ -1164,6 +1641,14 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a filled rectangle onto the 2D overlay. Call inside `draw()`.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} w
+   * @param {number} h
+   * @param {string} [color='#ffffff']
+   */
   rectFill(x, y, w, h, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
@@ -1172,6 +1657,14 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a 1 px line segment onto the 2D overlay. Call inside `draw()`.
+   * @param {number} x0 - Start X.
+   * @param {number} y0 - Start Y.
+   * @param {number} x1 - End X.
+   * @param {number} y1 - End Y.
+   * @param {string} [color='#ffffff']
+   */
   line(x0, y0, x1, y1, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
@@ -1184,6 +1677,13 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a 1 px outline circle onto the 2D overlay. Call inside `draw()`.
+   * @param {number} x - Centre X.
+   * @param {number} y - Centre Y.
+   * @param {number} r - Radius.
+   * @param {string} [color='#ffffff']
+   */
   circ(x, y, r, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
@@ -1195,6 +1695,13 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a filled circle onto the 2D overlay. Call inside `draw()`.
+   * @param {number} x - Centre X.
+   * @param {number} y - Centre Y.
+   * @param {number} r - Radius.
+   * @param {string} [color='#ffffff']
+   */
   circFill(x, y, r, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
@@ -1205,6 +1712,12 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a single pixel onto the 2D overlay. Call inside `draw()`.
+   * @param {number} x
+   * @param {number} y
+   * @param {string} [color='#ffffff']
+   */
   pixel(x, y, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
@@ -1213,6 +1726,16 @@ const Neptune = {
     ctx.restore();
   },
 
+  /**
+   * Draws a sprite cell from a loaded sprite sheet onto the 2D overlay. Call inside `draw()`.
+   * @param {string} sheetKey - Asset key from the manifest.
+   * @param {number} index    - Zero-based sprite index within the sheet.
+   * @param {number} x        - Destination X in internal resolution space.
+   * @param {number} y        - Destination Y in internal resolution space.
+   * @param {{ w?: number, h?: number }} [opts]
+   *   - `w` — span this many cells horizontally (default: 1).
+   *   - `h` — span this many cells vertically (default: 1).
+   */
   spr(sheetKey, index, x, y, opts = {}) {
     const asset = _assets[sheetKey];
     if (!asset) { warn(`spr: sheet "${sheetKey}" not loaded`); return; }
@@ -1228,6 +1751,14 @@ const Neptune = {
     );
   },
 
+  /**
+   * Draws a named rectangular region from a sprite sheet onto the 2D overlay. Call inside `draw()`.
+   * Regions are defined in the manifest under `sprites.<key>.regions`.
+   * @param {string} sheetKey   - Asset key from the manifest.
+   * @param {string} regionName - Name of the region as defined in the manifest.
+   * @param {number} x          - Destination X in internal resolution space.
+   * @param {number} y          - Destination Y in internal resolution space.
+   */
   sprRegion(sheetKey, regionName, x, y) {
     const asset = _assets[sheetKey];
     if (!asset) { warn(`sprRegion: sheet "${sheetKey}" not loaded`); return; }
@@ -1241,10 +1772,24 @@ const Neptune = {
   },
 
   // ── manual 3D rendering ───────────────────────────────────────────────────
+  /**
+   * Renders the 3D scene immediately using the current camera.
+   * Only needed when `manualRender: true` was passed to `init()`.
+   * Call this inside `draw()`, typically after setting `viewport()`.
+   */
   render3d() {
     _renderer.render(_scene, _threeCamera);
   },
 
+  /**
+   * Sets the 3D render region and scissor rectangle to a sub-area of the canvas.
+   * Coordinates are in internal resolution space (top-left origin).
+   * Use with `manualRender: true` for split-screen or picture-in-picture effects.
+   * @param {number} x - Left edge.
+   * @param {number} y - Top edge.
+   * @param {number} w - Width.
+   * @param {number} h - Height.
+   */
   viewport(x, y, w, h) {
     const scaleX = _renderer.domElement.width  / _config.width;
     const scaleY = _renderer.domElement.height / _config.height;
@@ -1255,6 +1800,16 @@ const Neptune = {
   },
 
   // ── raycasting ────────────────────────────────────────────────────────────
+  /**
+   * Casts a ray from `origin` in `direction` and returns information about the first hit,
+   * or `null` if nothing was hit.
+   * @param {[number,number,number]} origin    - Ray start point in world space.
+   * @param {[number,number,number]} direction - Ray direction (normalised internally).
+   * @param {object} [opts]
+   * @param {number}  [opts.maxDist]           - Maximum ray travel distance.
+   * @param {(obj: NObject) => boolean} [opts.filter] - Return `false` to exclude an object.
+   * @returns {{ hit: true, object: NObject, point: [number,number,number], distance: number }|null}
+   */
   raycast(origin, direction, opts = {}) {
     const rc  = new THREE.Raycaster();
     const org = new THREE.Vector3(...origin);
@@ -1286,6 +1841,13 @@ const Neptune = {
     };
   },
 
+  /**
+   * Unprojects a 2D screen coordinate to a 3D world-space position using the current camera.
+   * @param {number} screenX - X in internal resolution space (0–width).
+   * @param {number} screenY - Y in internal resolution space (0–height).
+   * @param {number} [depth=0] - NDC depth value (-1 = near plane, 1 = far plane, 0 = mid).
+   * @returns {[number, number, number]}
+   */
   screenToWorld(screenX, screenY, depth = 0) {
     const v = new THREE.Vector3(
       (screenX / _config.width)  * 2 - 1,
@@ -1296,19 +1858,40 @@ const Neptune = {
     return [v.x, v.y, v.z];
   },
 
+  /**
+   * Returns all NObjects whose `tag` property matches the given string.
+   * @param {string} tag
+   * @returns {NObject[]}
+   */
   findByTag(tag) {
     return _sceneObjects.filter(n => n.tag === tag);
   },
 
+  /**
+   * Returns a shallow copy of the array of all NObjects currently in the scene.
+   * @returns {NObject[]}
+   */
   findAll() {
     return [..._sceneObjects];
   },
 
   // ── persistence ───────────────────────────────────────────────────────────
+  /**
+   * Persists a JSON-serialisable value to `localStorage`, scoped to this page origin.
+   * @param {string} key   - Storage key (automatically namespaced).
+   * @param {*}      value - Any JSON-serialisable value.
+   */
   save(key, value) {
     try { localStorage.setItem('neptune:' + key, JSON.stringify(value)); } catch (e) { /* quota */ }
   },
 
+  /**
+   * Reads a previously saved value from `localStorage`.
+   * Returns `defaultValue` if the key does not exist or cannot be parsed.
+   * @param {string} key          - Storage key used with `save()`.
+   * @param {*}      defaultValue - Fallback when the key is absent.
+   * @returns {*}
+   */
   loadData(key, defaultValue) {
     try {
       const v = localStorage.getItem('neptune:' + key);
@@ -1316,15 +1899,29 @@ const Neptune = {
     } catch { return defaultValue; }
   },
 
+  /**
+   * Removes a saved key from `localStorage`.
+   * @param {string} key
+   */
   deleteSave(key) {
     localStorage.removeItem('neptune:' + key);
   },
 
+  /**
+   * Returns `true` if a value has been saved under the given key.
+   * @param {string} key
+   * @returns {boolean}
+   */
   hasSave(key) {
     return localStorage.getItem('neptune:' + key) !== null;
   },
 
   // ── Three.js escape hatch ─────────────────────────────────────────────────
+  /**
+   * Direct access to the underlying Three.js objects.
+   * Use only when Neptune's API does not cover your use case.
+   * @type {{ scene: THREE.Scene, renderer: THREE.WebGLRenderer, camera: THREE.Camera, THREE: typeof THREE }}
+   */
   _three: {
     get scene()    { return _scene; },
     get renderer() { return _renderer; },

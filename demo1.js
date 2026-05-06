@@ -2,6 +2,7 @@ import Neptune from 'neptune-engine';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const W = 320, H = 240;
+// const W = 640, H = 480;
 const BOX_SPEED  = 3;     // units / second
 const ROT_SPEED  = 90;    // degrees / second
 
@@ -188,7 +189,7 @@ Neptune.init({
   height:     H,
   scale:      'fit',
   antialias:  false,           // smooth edges for this demo
-  pixelArt:   false,
+  pixelArt:   true,
   background: '#0d0d18',
   debug:      true,
   fps:        60,
