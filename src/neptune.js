@@ -1097,6 +1097,45 @@ function _color(c) {
   return typeof c === 'string' ? c : (c?.color ?? '#ffffff');
 }
 
+// Bresenham's line — plots integer pixels with no antialiasing.
+function _plotLine(ctx, x0, y0, x1, y1) {
+  x0 = Math.round(x0); y0 = Math.round(y0);
+  x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+  const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    ctx.fillRect(x0, y0, 1, 1);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+
+// Midpoint circle algorithm — 1-px outline, no antialiasing.
+function _plotCircle(ctx, cx, cy, r) {
+  cx = Math.round(cx); cy = Math.round(cy); r = Math.round(r);
+  let x = 0, y = r, d = 1 - r;
+  while (x <= y) {
+    ctx.fillRect(cx + x, cy + y, 1, 1); ctx.fillRect(cx - x, cy + y, 1, 1);
+    ctx.fillRect(cx + x, cy - y, 1, 1); ctx.fillRect(cx - x, cy - y, 1, 1);
+    ctx.fillRect(cx + y, cy + x, 1, 1); ctx.fillRect(cx - y, cy + x, 1, 1);
+    ctx.fillRect(cx + y, cy - x, 1, 1); ctx.fillRect(cx - y, cy - x, 1, 1);
+    if (d < 0) { d += 2 * x + 3; } else { d += 2 * (x - y) + 5; y--; }
+    x++;
+  }
+}
+
+// Scanline-filled circle — one fillRect per row, no antialiasing.
+function _plotCircleFill(ctx, cx, cy, r) {
+  cx = Math.round(cx); cy = Math.round(cy); r = Math.round(r);
+  for (let dy = -r; dy <= r; dy++) {
+    const dx = Math.floor(Math.sqrt(r * r - dy * dy));
+    ctx.fillRect(cx - dx, cy + dy, 2 * dx + 1, 1);
+  }
+}
+
 // Renders `text` onto ctx using the Cherry bitmap font (7 px wide × 12 px tall).
 // widthScale / heightScale stretch each pixel rectangle; bold selects CHERRY_B.
 function _printBitmap(ctx, text, x, y, widthScale, heightScale, bold) {
@@ -1702,12 +1741,8 @@ const Neptune = {
   line(x0, y0, x1, y1, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
-    ctx.strokeStyle = _color(color);
-    ctx.lineWidth   = 1;
-    ctx.beginPath();
-    ctx.moveTo(x0 + 0.5, y0 + 0.5);
-    ctx.lineTo(x1 + 0.5, y1 + 0.5);
-    ctx.stroke();
+    ctx.fillStyle = _color(color);
+    _plotLine(ctx, x0, y0, x1, y1);
     ctx.restore();
   },
 
@@ -1721,11 +1756,8 @@ const Neptune = {
   circ(x, y, r, color = '#ffffff') {
     const ctx = _ctx();
     ctx.save();
-    ctx.strokeStyle = _color(color);
-    ctx.lineWidth   = 1;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.fillStyle = _color(color);
+    _plotCircle(ctx, x, y, r);
     ctx.restore();
   },
 
@@ -1740,9 +1772,7 @@ const Neptune = {
     const ctx = _ctx();
     ctx.save();
     ctx.fillStyle = _color(color);
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    _plotCircleFill(ctx, x, y, r);
     ctx.restore();
   },
 
