@@ -1,41 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Neptune — End-to-End Demo</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%; height: 100%;
-      background: #111;
-      overflow: hidden;
-    }
-    /* Neptune creates a fixed-position container for the canvases;
-       the <canvas> below is the Three.js render target. */
-    canvas { display: block; }
-  </style>
-
-  <!--
-    Import map wires up bare specifiers used by neptune.js.
-    Three r170 — change the version here if you need a different one.
-  -->
-  <script type="importmap">
-  {
-    "imports": {
-      "three":          "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-      "three/addons/":  "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
-      "neptune-engine": "./src/neptune.js"
-    }
-  }
-  </script>
-</head>
-<body>
-
-  <!-- Neptune will take over this canvas element. -->
-  <canvas id="game"></canvas>
-
-  <script type="module">
 import Neptune from 'neptune-engine';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -225,7 +187,7 @@ Neptune.init({
   width:      W,
   height:     H,
   scale:      'fit',
-  antialias:  true,           // smooth edges for this demo
+  antialias:  false,           // smooth edges for this demo
   pixelArt:   false,
   background: '#0d0d18',
   debug:      true,
@@ -235,6 +197,3 @@ Neptune.init({
 // No external assets for this demo — set up the scene immediately and start.
 setupScene();
 Neptune.start();
-  </script>
-</body>
-</html>
