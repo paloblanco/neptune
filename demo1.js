@@ -18,7 +18,13 @@ function setupScene() {
   score      = 0;
   spinToggle = false;
 
-  // Ground plane
+  // Toon shader variants — demonstrating outlineWidth, steps, and outlineColor options
+  const toon        = Neptune.addToonShader({ outlineColor: '#e8e836ff', outlineWidth: 0.15, steps: 3 });
+  const toonBold    = Neptune.addToonShader({ outlineColor: '#e5fc60ff', outlineWidth: 0.10, steps: 2 });
+  const toonSubtle  = Neptune.addToonShader({ outlineColor: '#3766dfff', outlineWidth: 0.02, steps: 4 });
+  const toonColored = Neptune.addToonShader({ outlineColor: '#afaf50ff', outlineWidth: 0.06, steps: 3 });
+
+  // Ground plane — no shader (flat, unlit look fits the ground)
   ground = Neptune.createBox({
     w: 20, h: 0.25, d: 20,
     color:         '#334455',
@@ -26,15 +32,17 @@ function setupScene() {
     receiveShadow: true,
   });
 
-  // Main box — this is the thing we drive with the keyboard
+  // Main box — standard toon (black outline, 3 steps)
   box = Neptune.createBox({
     w: 1, h: 1, d: 1,
     color:      '#e04040',
     position:   [0, 0.5, 0],
     castShadow: true,
   });
+  box.setShader(toon);
 
-  // A few decorative boxes to give the scene some depth
+  // Decorative cubes — each with a different shader variant
+  const decoShaders = [toonBold, toonSubtle, toonColored, toon];
   const positions = [
     [-4,  0.35, -3], [4,   0.35, -3],
     [-3,  0.35,  3], [3,   0.35,  3],
@@ -47,7 +55,7 @@ function setupScene() {
       position:      [x, y, z],
       castShadow:    true,
       receiveShadow: true,
-    });
+    }).setShader(decoShaders[i]);
   });
 
   // Lighting

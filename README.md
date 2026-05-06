@@ -12,14 +12,15 @@ Neptune is a lightweight JavaScript 3D game engine that wraps Three.js behind a 
 4. [Scene Objects](#4-scene-objects)
 5. [NObject — the object interface](#5-nobject--the-object-interface)
 6. [Lighting](#6-lighting)
-7. [Camera](#7-camera)
-8. [Input](#8-input)
-9. [2D Overlay Drawing](#9-2d-overlay-drawing)
-10. [Audio](#10-audio)
-11. [Persistence](#11-persistence)
-12. [Math & Scene Queries](#12-math--scene-queries)
-13. [Advanced Rendering](#13-advanced-rendering)
-14. [Escape Hatch](#14-escape-hatch)
+7. [Toon Shading](#7-toon-shading)
+8. [Camera](#8-camera)
+9. [Input](#9-input)
+10. [2D Overlay Drawing](#10-2d-overlay-drawing)
+11. [Audio](#11-audio)
+12. [Persistence](#12-persistence)
+13. [Math & Scene Queries](#13-math--scene-queries)
+14. [Advanced Rendering](#14-advanced-rendering)
+15. [Escape Hatch](#15-escape-hatch)
 
 ---
 
@@ -477,7 +478,64 @@ crate.receiveShadow = true;
 
 ---
 
-## 7. Camera
+## 7. Toon Shading
+
+Neptune supports cel-shaded rendering via `Neptune.addToonShader()`. It uses Two.js's `MeshToonMaterial` for quantized lighting bands and attaches a back-face hull mesh to each object for silhouette outlines.
+
+> **Note on outlines:** The hull technique draws outlines on the visible silhouette border of each object. Interior face edges (e.g. the crease between the top and front face of a box) are not outlined — that requires screen-space post-processing, which is not currently implemented.
+
+### `Neptune.addToonShader(opts)` → shader descriptor
+
+Creates a reusable shader descriptor. One descriptor can be shared across many objects.
+
+```js
+const toon = Neptune.addToonShader({
+  outlineColor: '#000000',  // CSS color for the silhouette outline (default: '#000000')
+  outlineWidth: 0.04,       // hull inflation as a fraction of object size (default: 0.04)
+                            // try 0.02 (subtle) → 0.10 (thick comic-book lines)
+  steps: 3,                 // lighting quantization bands (default: 3)
+                            // 2 = shadow / highlight only
+                            // 3 = shadow / midtone / highlight
+                            // 4 = four bands (smoother cel look)
+});
+```
+
+### `nobj.setShader(shader)`
+
+Applies the descriptor to an NObject. Works on all factory types (`createBox`, `createSphere`, `createModel`, etc.). Existing object color and texture map are preserved.
+
+```js
+box.setShader(toon);
+```
+
+`setShader` is chainable:
+
+```js
+Neptune.createBox({ w: 1, h: 1, d: 1, color: '#e04040', position: [0, 0.5, 0] })
+  .setShader(toon);
+```
+
+### Full example
+
+```js
+// Define shaders once — share across many objects
+const toonDefault = Neptune.addToonShader();
+const toonBold    = Neptune.addToonShader({ outlineWidth: 0.10, steps: 2 });
+const toonSubtle  = Neptune.addToonShader({ outlineWidth: 0.02, steps: 4 });
+const toonColored = Neptune.addToonShader({ outlineColor: '#1a0a00', outlineWidth: 0.05, steps: 3 });
+
+// Apply per-object
+hero.setShader(toonDefault);
+boulder.setShader(toonBold);
+foliage.setShader(toonSubtle);
+chest.setShader(toonColored);
+```
+
+> `MeshToonMaterial` requires scene lighting to show shading bands. Add at least one ambient or directional light, or objects will appear solid black.
+
+---
+
+## 8. Camera
 
 Neptune manages a single camera. You never construct a Three.js camera directly.
 
@@ -518,7 +576,7 @@ Neptune.camera.detach();
 
 ---
 
-## 8. Input
+## 9. Input
 
 All input is **polled** inside `update()`, not handled via event listeners.
 
@@ -640,7 +698,7 @@ Neptune handles releasing and re-requesting pointer lock across transitions auto
 
 ---
 
-## 9. 2D Overlay Drawing
+## 10. 2D Overlay Drawing
 
 All 2D calls go inside `draw()`. They render onto a canvas composited on top of the 3D scene. Coordinates are in **internal resolution space** (e.g. 0–320, 0–240). Colors are CSS strings throughout.
 
@@ -692,7 +750,7 @@ Neptune.sprRegion('ui', 'healthbar', x, y);       // draw a named region
 
 ---
 
-## 10. Audio
+## 11. Audio
 
 All sounds must be loaded via `Neptune.load()` before use.
 
@@ -714,7 +772,7 @@ Neptune.audio.unmute();
 
 ---
 
-## 11. Persistence
+## 12. Persistence
 
 Simple key-value store backed by `localStorage`. Values can be any JSON-serialisable type.
 
@@ -740,7 +798,7 @@ All data is automatically scoped to the page origin by `localStorage`.
 
 ---
 
-## 12. Math & Scene Queries
+## 13. Math & Scene Queries
 
 ### `Neptune.math`
 
@@ -791,7 +849,7 @@ Neptune.findAll()            // → NObject[] (all objects currently in the scen
 
 ---
 
-## 13. Advanced Rendering
+## 14. Advanced Rendering
 
 ### Manual 3D Rendering
 
@@ -829,7 +887,7 @@ Neptune.viewport(0, 0, 160, 240);   // left half
 
 ---
 
-## 14. Escape Hatch
+## 15. Escape Hatch
 
 If you need direct Three.js access for something Neptune does not expose, use:
 

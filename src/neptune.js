@@ -226,6 +226,43 @@ class NObject {
     const idx = _sceneObjects.indexOf(this);
     if (idx !== -1) _sceneObjects.splice(idx, 1);
   }
+
+  // toon shading ------------------------------------------------------------
+  /**
+   * Applies a toon-shading descriptor (from `Neptune.addToonShader()`) to this object.
+   * Replaces each mesh's material with `MeshToonMaterial` and attaches a back-face hull
+   * mesh for silhouette outlines. Existing color and texture map are preserved.
+   * @param {object} shader - Descriptor returned by `Neptune.addToonShader()`.
+   * @returns {NObject} This object (chainable).
+   */
+  setShader(shader) {
+    if (!shader || shader._type !== 'toon') {
+      warn('setShader: expected a descriptor from Neptune.addToonShader()');
+      return this;
+    }
+    this._obj.traverse(o => {
+      if (!o.isMesh || o._isHull) return;
+      const old = o.material;
+      o.material = new THREE.MeshToonMaterial({
+        color:       old.color?.clone() ?? new THREE.Color('#ffffff'),
+        map:         old.map ?? null,
+        gradientMap: shader._gradientMap,
+      });
+      old.dispose();
+
+      const hull = new THREE.Mesh(
+        o.geometry,
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color(shader.outlineColor),
+          side:  THREE.BackSide,
+        }),
+      );
+      hull._isHull = true;
+      hull.scale.setScalar(1 + shader.outlineWidth);
+      o.add(hull);
+    });
+    return this;
+  }
 }
 
 // ─── Sprite-sheet helpers ────────────────────────────────────────────────────
@@ -276,6 +313,18 @@ function _makeMaterial(opts = {}) {
   return new THREE.MeshLambertMaterial({
     color: new THREE.Color(opts.color ?? '#ffffff'),
   });
+}
+
+// Builds a DataTexture that quantizes MeshToonMaterial lighting into `steps` discrete bands.
+function _makeToonGradientMap(steps) {
+  const data = new Uint8Array(steps);
+  for (let i = 0; i < steps; i++) {
+    data[i] = Math.round(255 * (i + 1) / (steps + 1));
+  }
+  const tex = new THREE.DataTexture(data, steps, 1, THREE.RedFormat);
+  tex.minFilter = tex.magFilter = THREE.NearestFilter;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 // ─── Camera ──────────────────────────────────────────────────────────────────
@@ -1600,6 +1649,37 @@ const Neptune = {
 
     _scene.add(light);
     return light;
+  },
+
+  /**
+   * Creates a reusable toon-shading descriptor. Apply it to any NObject with `nobj.setShader()`.
+   *
+   * Uses `MeshToonMaterial` for cel-shaded fill (quantized lighting bands) and a back-face
+   * hull mesh for silhouette outlines. Outlines appear on the visible border of each object;
+   * interior face edges are not outlined (that requires post-processing).
+   *
+   * @param {object} [opts]
+   * @param {string} [opts.outlineColor='#000000'] - CSS color for the outline.
+   * @param {number} [opts.outlineWidth=0.04]      - Hull inflation as a fraction of object size
+   *   (0.04 = 4% larger). Larger values = thicker outline. Try 0.02–0.08.
+   * @param {number} [opts.steps=3]                - Number of shading bands.
+   *   2 = shadow / highlight only; 3 = shadow / midtone / highlight; 4 = four bands.
+   * @returns {{ _type: string, outlineColor: string, outlineWidth: number }}
+   *
+   * @example
+   * const toon = Neptune.addToonShader({ outlineColor: '#1a1a2e', outlineWidth: 0.05 });
+   * box.setShader(toon);
+   */
+  addToonShader(opts = {}) {
+    // THREE.Color doesn't parse #RRGGBBAA — strip the alpha byte if present.
+    const raw          = opts.outlineColor ?? '#000000';
+    const outlineColor = /^#[0-9a-fA-F]{8}$/.test(raw) ? raw.slice(0, 7) : raw;
+    return {
+      _type:        'toon',
+      _gradientMap: _makeToonGradientMap(Math.max(2, Math.round(opts.steps ?? 3))),
+      outlineColor,
+      outlineWidth: opts.outlineWidth ?? 0.04,
+    };
   },
 
   // ── input ─────────────────────────────────────────────────────────────────

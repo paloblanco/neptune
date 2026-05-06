@@ -83,6 +83,18 @@ Neptune.print(text, x, y, style = {})
 // font kwarg does NOT exist — Cherry is the only font
 ```
 
+## Toon shading (README §7)
+
+`Neptune.addToonShader(opts)` → returns `{ _type:'toon', _gradientMap, outlineColor, outlineWidth }`.
+`NObject.setShader(shader)` → traverses all meshes; swaps `MeshLambertMaterial` → `MeshToonMaterial` (preserving color + map) and adds a back-face hull child mesh for silhouette outlines.
+
+Private helper: `_makeToonGradientMap(steps)` — builds a `DataTexture` with `steps` evenly-spaced bands using `NearestFilter` for quantized lighting. Located just after `_makeMaterial` (~line 293).
+
+Hull meshes are marked `._isHull = true` so `setShader` traversals skip them on re-application.
+Outlines are silhouette-only (back-face hull); interior feature edges require `OutlinePass` post-processing (not implemented).
+
+demo1.js uses four shader variants: `toon` (default), `toonBold` (thick/2-step), `toonSubtle` (thin/4-step), `toonColored` (dark-tinted outline).
+
 ## Conventions
 
 - Public API lives on the `Neptune` object literal starting at line 1166.
