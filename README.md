@@ -655,15 +655,19 @@ Neptune.cls('#000000');   // clear to a solid color
 
 ### Text
 
+Text is rendered using the Cherry bitmap font (7 px wide × 12 px tall per glyph at default scale).
+
 ```js
-// Simple string form
+// Simple string form — white text, default scale
 Neptune.print('SCORE: 100', x, y, '#ffffff');
 
 // Options form
 Neptune.print('SCORE: 100', x, y, {
-  color: '#fff',
-  font:  '8px monospace',  // any CSS font string
-  align: 'left',           // 'left' | 'center' | 'right'
+  color:       '#fff',
+  align:       'left',   // 'left' | 'center' | 'right'
+  widthScale:  1,        // integer pixel multiplier for glyph width
+  heightScale: 1,        // integer pixel multiplier for glyph height
+  bold:        false,    // true = Cherry bold variant
 });
 ```
 

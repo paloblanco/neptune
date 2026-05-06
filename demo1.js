@@ -112,74 +112,73 @@ Neptune.update = function update(dt) {
 Neptune.draw = function draw() {
   const isFlashing = flashTimer > 0;
 
-  // ── HUD panel (top-left) ─────────────────────────────────────────────
-  Neptune.rectFill(2, 2, 120, 44, 'rgba(0,0,0,0.55)');
-  Neptune.rect    (2, 2, 120, 44, '#445566');
+  // ── HUD panel (top-left) — Cherry font is 7×12 px per glyph ─────────
+  Neptune.rectFill(2, 2, 112, 56, 'rgba(0,0,0,0.55)');
+  Neptune.rect    (2, 2, 112, 56, '#445566');
 
-  Neptune.print('NEPTUNE ENGINE v0.1', 6, 5, { color: '#88aacc', font: '6px monospace' });
-  Neptune.line(4, 14, 118, 14, '#334455');
+  Neptune.print('NEPTUNE v0.1', 6, 5, { color: '#88aacc' });
+  Neptune.line(4, 19, 110, 19, '#334455');
 
-  Neptune.print('SCORE', 6, 17, { color: '#aaaaaa', font: '7px monospace' });
-  Neptune.print(String(score).padStart(7, '0'), 50, 17, { color: '#ffdd44', font: '7px monospace' });
+  Neptune.print('SCORE', 6, 23, { color: '#aaaaaa' });
+  Neptune.print(String(score).padStart(6, '0'), 50, 23, { color: '#ffdd44' });
 
   const spinLabel = spinToggle ? 'ON ' : 'OFF';
   const spinColor = spinToggle ? '#44ff88' : '#ff4444';
-  Neptune.print('SPIN',     6, 29, { color: '#aaaaaa', font: '7px monospace' });
-  Neptune.print(spinLabel, 50, 29, { color: spinColor, font: '7px monospace' });
+  Neptune.print('SPIN',     6, 37, { color: '#aaaaaa' });
+  Neptune.print(spinLabel, 50, 37, { color: spinColor });
 
-  // Flash dot when a key event fires
   if (isFlashing) {
-    Neptune.circFill(112, 10, 4, '#ffdd44');
+    Neptune.circFill(108, 10, 4, '#ffdd44');
   }
 
   // ── Controls cheatsheet (bottom-left) ────────────────────────────────
-  Neptune.rectFill(2, H - 48, 148, 46, 'rgba(0,0,0,0.55)');
-  Neptune.rect    (2, H - 48, 148, 46, '#334455');
+  Neptune.rectFill(2, H - 54, 162, 52, 'rgba(0,0,0,0.55)');
+  Neptune.rect    (2, H - 54, 162, 52, '#334455');
 
   const controls = [
-    ['ARROWS / WASD', 'move box'],
-    ['R',             'toggle spin'],
-    ['SPACE',         'flash (keyPress demo)'],
+    ['ARROWS/WASD', 'move'],
+    ['R',           'spin toggle'],
+    ['SPACE',       'flash demo'],
   ];
   controls.forEach(([key, desc], i) => {
-    const y = H - 45 + i * 13;
-    Neptune.print(key,   6, y, { color: '#88bbff', font: '6px monospace' });
-    Neptune.print(desc, 72, y, { color: '#888888', font: '6px monospace' });
+    const y = H - 51 + i * 15;
+    Neptune.print(key,   6, y, { color: '#88bbff' });
+    Neptune.print(desc, 90, y, { color: '#888888' });
   });
 
   // ── 2D draw call sampler (bottom-right) ──────────────────────────────
-  const bx = W - 70, by = H - 68;
-  Neptune.rectFill(bx - 2, by - 2, 70, 68, 'rgba(0,0,0,0.55)');
-  Neptune.rect    (bx - 2, by - 2, 70, 68, '#445566');
+  const bx = W - 84, by = H - 98;
+  Neptune.rectFill(bx - 2, by - 2, 86, 100, 'rgba(0,0,0,0.55)');
+  Neptune.rect    (bx - 2, by - 2, 86, 100, '#445566');
 
-  Neptune.print('2D DRAW CALLS', bx, by, { color: '#88aacc', font: '6px monospace' });
+  Neptune.print('DRAW CALLS', bx, by, { color: '#88aacc' });
 
   // rect outline
-  Neptune.rect(bx + 2, by + 10, 16, 10, '#ffdd44');
-  Neptune.print('rect',    bx + 22, by + 11, { color: '#aaaaaa', font: '6px monospace' });
+  Neptune.rect(bx + 1, by + 14, 14, 10, '#ffdd44');
+  Neptune.print('rect', bx + 18, by + 14, { color: '#aaaaaa' });
 
   // filled rect
-  Neptune.rectFill(bx + 2, by + 24, 16, 10, '#44aaff');
-  Neptune.print('fill',    bx + 22, by + 25, { color: '#aaaaaa', font: '6px monospace' });
+  Neptune.rectFill(bx + 1, by + 28, 14, 10, '#44aaff');
+  Neptune.print('fill', bx + 18, by + 28, { color: '#aaaaaa' });
 
   // circle outline
-  Neptune.circ(bx + 10, by + 44, 6, '#ff8844');
-  Neptune.print('circ',    bx + 22, by + 39, { color: '#aaaaaa', font: '6px monospace' });
+  Neptune.circ(bx + 8, by + 48, 6, '#ff8844');
+  Neptune.print('circ', bx + 18, by + 42, { color: '#aaaaaa' });
 
   // filled circle
-  Neptune.circFill(bx + 10, by + 58, 5, '#88cc44');
-  Neptune.print('cfill',   bx + 22, by + 53, { color: '#aaaaaa', font: '6px monospace' });
+  Neptune.circFill(bx + 8, by + 63, 5, '#88cc44');
+  Neptune.print('cfill', bx + 18, by + 57, { color: '#aaaaaa' });
 
   // line
-  Neptune.line(bx + 42, by + 10, bx + 66, by + 20, '#cc44cc');
-  Neptune.print('line',    bx + 42, by + 22, { color: '#aaaaaa', font: '6px monospace' });
+  Neptune.line(bx + 1, by + 72, bx + 15, by + 82, '#cc44cc');
+  Neptune.print('line', bx + 18, by + 72, { color: '#aaaaaa' });
 
   // pixels
   for (let i = 0; i < 7; i++) {
     const hue = (i / 7) * 360;
-    Neptune.pixel(bx + 42 + i * 3, by + 36, `hsl(${hue},100%,60%)`);
+    Neptune.pixel(bx + 1 + i * 2, by + 86, `hsl(${hue},100%,60%)`);
   }
-  Neptune.print('pixel',   bx + 42, by + 39, { color: '#aaaaaa', font: '6px monospace' });
+  Neptune.print('pxl', bx + 18, by + 86, { color: '#aaaaaa' });
 };
 
 // ─── Init & start ─────────────────────────────────────────────────────────────
@@ -187,7 +186,7 @@ Neptune.init({
   canvas:     '#game',
   width:      W,
   height:     H,
-  scale:      'fit',
+  scale:      'pixel',
   antialias:  false,           // smooth edges for this demo
   pixelArt:   true,
   background: '#0d0d18',

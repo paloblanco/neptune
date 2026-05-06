@@ -7,6 +7,7 @@
  */
 
 import * as THREE from 'three';
+import { CHERRY_R, CHERRY_B } from './cherry-font.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -848,9 +849,8 @@ function _drawLoadingScreen() {
   _overlayCtx.fillStyle = '#000';
   _overlayCtx.fillRect(0, 0, W, H);
   _overlayCtx.fillStyle = '#fff';
-  _overlayCtx.font = '8px monospace';
-  _overlayCtx.textBaseline = 'top';
-  _overlayCtx.fillText('NOW LOADING...', W / 2 - 36, H / 2 - 4);
+  // "NOW LOADING..." = 14 chars × 7 px, centered
+  _printBitmap(_overlayCtx, 'NOW LOADING...', W / 2 - 49, H / 2 - 6, 1, 1, false);
 }
 
 function _drawErrorScreen(msg) {
@@ -859,10 +859,8 @@ function _drawErrorScreen(msg) {
   _overlayCtx.fillStyle = '#1a0000';
   _overlayCtx.fillRect(0, 0, W, H);
   _overlayCtx.fillStyle = '#ff4444';
-  _overlayCtx.font = '7px monospace';
-  _overlayCtx.textBaseline = 'top';
   const lines = msg.split('\n');
-  lines.forEach((l, i) => _overlayCtx.fillText(l, 4, 4 + i * 10));
+  lines.forEach((l, i) => _printBitmap(_overlayCtx, l, 4, 4 + i * 14, 1, 1, false));
 }
 
 // ─── Billboard orientation ────────────────────────────────────────────────────
@@ -1097,6 +1095,33 @@ function _ctx() { return _overlayCtx; }
 
 function _color(c) {
   return typeof c === 'string' ? c : (c?.color ?? '#ffffff');
+}
+
+// Renders `text` onto ctx using the Cherry bitmap font (7 px wide × 12 px tall).
+// widthScale / heightScale stretch each pixel rectangle; bold selects CHERRY_B.
+function _printBitmap(ctx, text, x, y, widthScale, heightScale, bold) {
+  const glyphs = bold ? CHERRY_B : CHERRY_R;
+  const GLYPH_W = 7, GLYPH_H = 12;
+  let drawX = x;
+  for (const ch of String(text)) {
+    const cp = ch.codePointAt(0);
+    const rows = glyphs[cp] ?? glyphs[32];
+    for (let row = 0; row < GLYPH_H; row++) {
+      const b = rows[row];
+      if (b === 0) continue;
+      for (let col = 0; col < GLYPH_W; col++) {
+        if ((b >> (7 - col)) & 1) {
+          ctx.fillRect(
+            drawX + col * widthScale,
+            y     + row * heightScale,
+            widthScale,
+            heightScale,
+          );
+        }
+      }
+    }
+    drawX += GLYPH_W * widthScale;
+  }
 }
 
 // ─── Neptune public API ───────────────────────────────────────────────────────
@@ -1600,27 +1625,36 @@ const Neptune = {
   },
 
   /**
-   * Draws text onto the 2D overlay. Call inside `draw()`.
+   * Draws text onto the 2D overlay using the Cherry bitmap font. Call inside `draw()`.
+   * Each glyph is 7 px wide × 12 px tall at default scale.
    * @param {string|number} text - The text to render.
-   * @param {number} x - Left edge in internal resolution space.
+   * @param {number} x - Left edge (or anchor for center/right align) in internal resolution space.
    * @param {number} y - Top edge in internal resolution space.
-   * @param {string|{ color?: string, font?: string, align?: 'left'|'center'|'right' }} [style='#ffffff']
+   * @param {string|{ color?: string, align?: 'left'|'center'|'right', widthScale?: number, heightScale?: number, bold?: boolean }} [style='#ffffff']
    *   Pass a CSS color string for quick use, or an options object for full control.
-   *   - `color` — CSS color string (default: `'#ffffff'`).
-   *   - `font`  — CSS font string (default: `'8px monospace'`).
-   *   - `align` — text alignment (default: `'left'`).
+   *   - `color`       — CSS color string (default: `'#ffffff'`).
+   *   - `align`       — `'left'` | `'center'` | `'right'` (default: `'left'`).
+   *   - `widthScale`  — integer pixel multiplier for glyph width (default: `1`).
+   *   - `heightScale` — integer pixel multiplier for glyph height (default: `1`).
+   *   - `bold`        — use the bold Cherry variant (default: `false`).
    */
   print(text, x, y, style = {}) {
-    const ctx  = _ctx();
-    const color = typeof style === 'string' ? style : (style.color ?? '#ffffff');
-    const font  = typeof style === 'object' ? (style.font  ?? '8px monospace') : '8px monospace';
-    const align = typeof style === 'object' ? (style.align ?? 'left') : 'left';
+    const str         = String(text);
+    const color       = typeof style === 'string' ? style : (style.color       ?? '#ffffff');
+    const align       = typeof style === 'object' ? (style.align               ?? 'left')  : 'left';
+    const widthScale  = typeof style === 'object' ? (style.widthScale          ?? 1)        : 1;
+    const heightScale = typeof style === 'object' ? (style.heightScale         ?? 1)        : 1;
+    const bold        = typeof style === 'object' ? (style.bold                ?? false)    : false;
+
+    const totalWidth = str.length * 7 * widthScale;
+    let drawX = x;
+    if (align === 'center') drawX = x - totalWidth / 2;
+    else if (align === 'right') drawX = x - totalWidth;
+
+    const ctx = _ctx();
     ctx.save();
-    ctx.fillStyle   = color;
-    ctx.font        = font;
-    ctx.textAlign   = align;
-    ctx.textBaseline = 'top';
-    ctx.fillText(String(text), x, y);
+    ctx.fillStyle = color;
+    _printBitmap(ctx, str, drawX, y, widthScale, heightScale, bold);
     ctx.restore();
   },
 
